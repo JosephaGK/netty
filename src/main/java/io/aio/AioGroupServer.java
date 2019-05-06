@@ -3,19 +3,26 @@ package io.aio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class AioServer {
-	public static void main(String[] args) throws  Exception{
-		AsynchronousServerSocketChannel serverSocketChannel = AsynchronousServerSocketChannel.open().bind(new InetSocketAddress(8888));
+public class AioGroupServer {
+	public static void main(String[] args) throws Exception {
+		ExecutorService executorService = Executors.newCachedThreadPool();
+		AsynchronousChannelGroup threadGroup = AsynchronousChannelGroup.withCachedThreadPool(executorService, 1);
 
-		serverSocketChannel.accept(null, new CompletionHandler<AsynchronousSocketChannel, Object>() {
+		//中文测试
+		final AsynchronousServerSocketChannel serverChannel = AsynchronousServerSocketChannel.open(threadGroup)
+				.bind(new InetSocketAddress(8888));
+
+		serverChannel.accept(null, new CompletionHandler<AsynchronousSocketChannel, Object>() {
 			@Override
 			public void completed(AsynchronousSocketChannel client, Object attachment) {
-				serverSocketChannel.accept(null,this);
-
+				serverChannel.accept(null, this);
 				try {
 					System.out.println(client.getRemoteAddress());
 					ByteBuffer buffer = ByteBuffer.allocate(1024);
@@ -26,15 +33,17 @@ public class AioServer {
 							System.out.println(new String(attachment.array(), 0, result));
 							client.write(ByteBuffer.wrap("HelloClient".getBytes()));
 						}
+
 						@Override
 						public void failed(Throwable exc, ByteBuffer attachment) {
-
+							exc.printStackTrace();
 						}
 					});
+
+
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-
 			}
 
 			@Override
@@ -42,8 +51,10 @@ public class AioServer {
 				exc.printStackTrace();
 			}
 		});
+
 		while (true) {
 			Thread.sleep(1000);
 		}
+
 	}
 }
